@@ -1,0 +1,71 @@
+@startuml
+title ENAGA Pay - ER Diagram
+
+hide circle
+skinparam linetype ortho
+skinparam packageStyle rectangle
+
+package "user schema" {
+  entity "user" as users {
+    * user_id : INTEGER <<PK>>
+    --
+    user_name : TEXT
+    balance : INTEGER
+  }
+}
+
+package "shop schema" {
+  entity "shop" as shops {
+    * shop_id : INTEGER <<PK>>
+    --
+    shop_name : TEXT
+  }
+
+  entity "pos" as pos {
+    * pos_id : INTEGER <<PK>>
+    --
+    shop_id : INTEGER <<FK>>
+  }
+
+}
+
+package "payment schema" {
+  entity "payment_token" as tokens {
+    * token_id : INTEGER <<PK>>
+    --
+    user_id : INTEGER <<FK>>
+    token : TEXT <<UNIQUE>>
+    created_at : DATETIME
+    expired_at : DATETIME
+    status : TEXT
+    updated_at : DATETIME
+  }
+
+  entity "payment" as payments {
+    * payment_id : INTEGER <<PK>>
+    --
+    shop_id : INTEGER <<FK>>
+    token_id : INTEGER <<FK>>
+    request_id : TEXT <<UNIQUE>>
+    sales : INTEGER
+    date : DATETIME
+    status : TEXT
+  }
+}
+
+users ||--o{ tokens : owns
+shops ||--o{ pos : has
+shops ||--o{ payments : receives
+tokens ||--o{ payments : used_for
+
+note bottom of payments
+  sales = 購入金額 (JPY)
+  date = 購入日時
+  status = pending / completed / failed
+end note
+
+note bottom of payments
+  POSを紐づけるか検討中
+end note
+
+@enduml

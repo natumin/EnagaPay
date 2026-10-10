@@ -1,0 +1,66 @@
+@startuml
+title ENAGA Pay 決済シーケンス図 v0.1
+
+actor "利用者" as User
+participant "アプリ" as App
+participant "トークンサーバー" as TokenServer
+participant "POS" as POS
+participant "決済サーバー" as PaymentServer
+database "決済DB" as PaymentDB
+
+User -> App : 開く
+App -> TokenServer : トークン発行要求
+TokenServer --> App : トークン返却
+group 決済処理トランザクション
+  POS -> App : 読み取り
+  App --> POS : バーコード読み取り
+  POS -> PaymentServer : 決済要求 \n(トークン、金額、店舗ID)
+  group 決済DBトランザクション
+    PaymentServer -> TokenServer : トークン整合性確認
+    TokenServer -> TokenServer : 期限・ステータス確認
+    TokenServer -> TokenServer : ステータスをACTIVEからCONSUMEDに更新
+    note right of TokenServer
+      Tokenのステータス種類
+      ・ACTIVE : 有効
+      ・CONSUMED : 利用済み
+      ・EXPIRED : 有効期限切れ
+      ・REVOKED : 取り消し
+    end note
+    TokenServer -> PaymentServer : トークン有効チェックOK
+    PaymentServer -> PaymentDB : 店舗IDチェック
+    PaymentDB --> PaymentServer : OK
+    PaymentServer -> PaymentDB : 残高チェック
+    PaymentDB -> PaymentDB : 残高チェック
+    note right of PaymentDB
+      UPDATE user
+      SET balance = balance - :sales
+      WHERE user_id = :user_id
+        AND balance >= :sales;
+    end note
+    PaymentServer -> PaymentDB : 決済情報登録
+    PaymentDB -> PaymentDB : 決済情報登録
+    note right of PaymentDB
+      INSERT INTO payment (
+          shop_id,
+          token_id,
+          sales,
+          date,
+          status,
+          request_id
+      )
+      VALUES (
+          :shop_id,
+          :token_id,
+          :sales,
+          CURRENT_TIMESTAMP,
+          'completed',
+          :request_id
+      );
+    end note
+  end
+end
+PaymentDB --> PaymentServer : OK
+PaymentServer --> POS : OK
+PaymentServer --> App : OK
+User --> App : 閉じる
+@enduml
